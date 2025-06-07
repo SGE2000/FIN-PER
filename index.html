@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Gastos Personales</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .priority-necessary { background-color: #fee2e2; }
+        .priority-postponible { background-color: #fef3c7; }
+        .priority-prescindible { background-color: #dcfce7; }
+        .priority-inversion { background-color: #dbeafe; }
+        
+        @media (max-width: 768px) {
+            .scrollable-table {
+                overflow-x: auto;
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Cabecera con fecha -->
+        <header class="mb-8 bg-white p-6 rounded-xl shadow-md">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-3xl font-bold text-indigo-700">
+                    <i class="fas fa-wallet mr-2"></i>Control de Gastos
+                </h1>
+                
+                <div class="flex items-center gap-3">
+                    <button id="btnAyer" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 transition">
+                        <i class="fas fa-arrow-left mr-2"></i>Ayer
+                    </button>
+                    
+                    <div class="relative">
+                        <input type="date" id="datePicker" class="border-2 border-indigo-200 rounded-lg px-4 py-2 focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    
+                    <button id="btnHoy" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                        Hoy<i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="currentDate" class="mt-4 text-center text-xl font-semibold text-gray-700"></div>
+        </header>
+
+        <!-- Resumen Financiero -->
+        <section class="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-red-500">
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">Total Gastos</h2>
+                <div id="totalGastos" class="text-3xl font-bold text-red-600">$0.00</div>
+                <div class="mt-2 text-sm text-gray-500">
+                    <span id="gastosNecesarios">Necesarios: $0.00</span> | 
+                    <span id="gastosPostponibles">Postponibles: $0.00</span>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500">
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">Total Ingresos</h2>
+                <div id="totalIngresos" class="text-3xl font-bold text-green-600">$0.00</div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-indigo-500">
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">Balance Diario</h2>
+                <div id="balanceDiario" class="text-3xl font-bold text-indigo-600">$0.00</div>
+                <div id="balanceEstado" class="mt-2 text-sm font-medium"></div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Sección de Gastos -->
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-red-600">
+                        <i class="fas fa-money-bill-wave mr-2"></i>Gastos
+                    </h2>
+                    <button id="btnAgregarGasto" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">
+                        <i class="fas fa-plus mr-2"></i>Agregar Gasto
+                    </button>
+                </div>
+                
+                <div class="scrollable-table">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 text-left">Monto</th>
+                                <th class="p-3 text-left">Categoría</th>
+                                <th class="p-3 text-left">Prioridad</th>
+                                <th class="p-3 text-left">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gastosContainer">
+                            <!-- Las filas de gastos se insertarán aquí dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Sección de Ingresos -->
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-green-600">
+                        <i class="fas fa-piggy-bank mr-2"></i>Ingresos
+                    </h2>
+                    <button id="btnAgregarIngreso" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
+                        <i class="fas fa-plus mr-2"></i>Agregar Ingreso
+                    </button>
+                </div>
+                
+                <div class="scrollable-table">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 text-left">Monto</th>
+                                <th class="p-3 text-left">Fuente</th>
+                                <th class="p-3 text-left">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ingresosContainer">
+                            <!-- Las filas de ingresos se insertarán aquí dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <section class="mt-8 bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-6">
+                <i class="fas fa-chart-pie mr-2"></i>Resumen Visual
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Distribución de Gastos</h3>
+                    <canvas id="gastosChart"></canvas>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Ingresos vs Gastos</h3>
+                    <canvas id="balanceChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pie de página -->
+        <footer class="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <button id="btnExportar" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition flex items-center">
+                <i class="fas fa-file-export mr-2"></i>Exportar a CSV
+            </button>
+            <div class="text-gray-600 text-sm">
+                Datos almacenados localmente en tu dispositivo
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentDate = new Date();
+        let gastosChart = null;
+        let balanceChart = null;
+        
+        // Categorías y prioridades
+        const categorias = [
+            'Alimentación', 'Salud', 'Transporte', 'Ocio', 
+            'Educación', 'Vivienda', 'Trabajo', 'Otros'
+        ];
+        
+        const prioridades = [
+            {nombre: 'Necesario', clase: 'priority-necessary'},
+            {nombre: 'Postponible', clase: 'priority-postponible'},
+            {nombre: 'Prescindible', clase: 'priority-prescindible'},
+            {nombre: 'Inversión', clase: 'priority-inversion'}
+        ];
+        
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            initDatePicker();
+            cargarDatos();
+            actualizarVista();
+            
+            // Event Listeners
+            document.getElementById('btnAgregarGasto').addEventListener('click', agregarGasto);
+            document.getElementById('btnAgregarIngreso').addEventListener('click', agregarIngreso);
+            document.getElementById('datePicker').addEventListener('change', cambiarFecha);
+            document.getElementById('btnHoy').addEventListener('click', irAHoy);
+            document.getElementById('btnAyer').addEventListener('click', irAAyer);
+            document.getElementById('btnExportar').addEventListener('click', exportarCSV);
+        });
+        
+        // Funciones de gestión de fechas
+        function initDatePicker() {
+            const datePicker = document.getElementById('datePicker');
+            datePicker.value = formatoFechaISO(currentDate);
+            actualizarTextoFecha();
+        }
+        
+        function formatoFechaISO(date) {
+            return date.toISOString().split('T')[0];
+        }
+        
+        function formatoFechaLegible(date) {
+            const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('es-ES', opciones);
+        }
+        
+        function actualizarTextoFecha() {
+            document.getElementById('currentDate').textContent = formatoFechaLegible(currentDate);
+        }
+        
+        function cambiarFecha() {
+            const nuevaFecha = new Date(document.getElementById('datePicker').value);
+            currentDate = nuevaFecha;
+            actualizarTextoFecha();
+            cargarDatos();
+            actualizarVista();
+        }
+        
+        function irAHoy() {
+            currentDate = new Date();
+            document.getElementById('datePicker').value = formatoFechaISO(currentDate);
+            actualizarTextoFecha();
+            cargarDatos();
+            actualizarVista();
+        }
+        
+        function irAAyer() {
+            const ayer = new Date();
+            ayer.setDate(ayer.getDate() - 1);
+            currentDate = ayer;
+            document.getElementById('datePicker').value = formatoFechaISO(ayer);
+            actualizarTextoFecha();
+            cargarDatos();
+            actualizarVista();
+        }
+        
+        // Gestión de datos
+        function cargarDatos() {
+            const fechaISO = formatoFechaISO(currentDate);
+            const datosGuardados = localStorage.getItem(`gastos_${fechaISO}`);
+            
+            if (datosGuardados) {
+                return JSON.parse(datosGuardados);
+            }
+            
+            return {
+                gastos: [],
+                ingresos: []
+            };
+        }
+        
+        function guardarDatos(datos) {
+            const fechaISO = formatoFechaISO(currentDate);
+            localStorage.setItem(`gastos_${fechaISO}`, JSON.stringify(datos));
+            mostrarNotificacion('Datos guardados correctamente');
+        }
+        
+        function mostrarNotificacion(mensaje) {
+            // Implementación simplificada
+            alert(mensaje);
+        }
+        
+        // Funciones para gastos
+        function agregarGasto() {
+            const datos = cargarDatos();
+            
+            const nuevoGasto = {
+                id: Date.now(),
+                monto: 0,
+                categoria: categorias[0],
+                prioridad: prioridades[0].nombre
+            };
+            
+            datos.gastos.push(nuevoGasto);
+            guardarDatos(datos);
+            actualizarVista();
+        }
+        
+        function eliminarGasto(id) {
+            if (!confirm('¿Estás seguro de eliminar este gasto?')) return;
+            
+            const datos = cargarDatos();
+            datos.gastos = datos.gastos.filter(gasto => gasto.id !== id);
+            guardarDatos(datos);
+            actualizarVista();
+        }
+        
+        function actualizarGasto(id, campo, valor) {
+            const datos = cargarDatos();
+            const gasto = datos.gastos.find(g => g.id === id);
+            
+            if (gasto) {
+                gasto[campo] = valor;
+                guardarDatos(datos);
+                actualizarResumen();
+                actualizarGraficos();
+            }
+        }
+        
+        // Funciones para ingresos
+        function agregarIngreso() {
+            const datos = cargarDatos();
+            
+            const nuevoIngreso = {
+                id: Date.now(),
+                monto: 0,
+                fuente: ''
+            };
+            
+            datos.ingresos.push(nuevoIngreso);
+            guardarDatos(datos);
+            actualizarVista();
+        }
+        
+        function eliminarIngreso(id) {
+            if (!confirm('¿Estás seguro de eliminar este ingreso?')) return;
+            
+            const datos = cargarDatos();
+            datos.ingresos = datos.ingresos.filter(ingreso => ingreso.id !== id);
+            guardarDatos(datos);
+            actualizarVista();
+        }
+        
+        function actualizarIngreso(id, campo, valor) {
+            const datos = cargarDatos();
+            const ingreso = datos.ingresos.find(i => i.id === id);
+            
+            if (ingreso) {
+                ingreso[campo] = campo === 'monto' ? parseFloat(valor) : valor;
+                guardarDatos(datos);
+                actualizarResumen();
+                actualizarGraficos();
+            }
+        }
+        
+        // Renderización
+        function actualizarVista() {
+            const datos = cargarDatos();
+            renderizarGastos(datos.gastos);
+            renderizarIngresos(datos.ingresos);
+            actualizarResumen();
+            actualizarGraficos();
+        }
+        
+        function renderizarGastos(gastos) {
+            const container = document.getElementById('gastosContainer');
+            container.innerHTML = '';
+            
+            gastos.forEach(gasto => {
+                const row = document.createElement('tr');
+                const prioridadClase = prioridades.find(p => p.nombre === gasto.prioridad)?.clase || '';
+                
+                row.className = `border-b ${prioridadClase}`;
+                row.innerHTML = `
+                    <td class="p-3">
+                        <input type="number" min="0" step="0.01" 
+                               value="${gasto.monto}" 
+                               onchange="actualizarGasto(${gasto.id}, 'monto', this.value)"
+                               class="w-full p-2 border rounded">
+                    </td>
+                    <td class="p-3">
+                        <select onchange="actualizarGasto(${gasto.id}, 'categoria', this.value)"
+                                class="w-full p-2 border rounded">
+                            ${categorias.map(cat => 
+                                `<option value="${cat}" ${gasto.categoria === cat ? 'selected' : ''}>${cat}</option>`
+                            ).join('')}
+                        </select>
+                    </td>
+                    <td class="p-3">
+                        <select onchange="actualizarGasto(${gasto.id}, 'prioridad', this.value)"
+                                class="w-full p-2 border rounded">
+                            ${prioridades.map(pri => 
+                                `<option value="${pri.nombre}" ${gasto.prioridad === pri.nombre ? 'selected' : ''}>${pri.nombre}</option>`
+                            ).join('')}
+                        </select>
+                    </td>
+                    <td class="p-3">
+                        <button onclick="eliminarGasto(${gasto.id})" 
+                                class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                container.appendChild(row);
+            });
+        }
+        
+        function renderizarIngresos(ingresos) {
+            const container = document.getElementById('ingresosContainer');
+            container.innerHTML = '';
+            
+            ingresos.forEach(ingreso => {
+                const row = document.createElement('tr');
+                row.className = 'border-b';
+                row.innerHTML = `
+                    <td class="p-3">
+                        <input type="number" min="0" step="0.01" 
+                               value="${ingreso.monto}" 
+                               onchange="actualizarIngreso(${ingreso.id}, 'monto', this.value)"
+                               class="w-full p-2 border rounded">
+                    </td>
+                    <td class="p-3">
+                        <input type="text" 
+                               value="${ingreso.fuente}" 
+                               onchange="actualizarIngreso(${ingreso.id}, 'fuente', this.value)"
+                               placeholder="Fuente de ingreso"
+                               class="w-full p-2 border rounded">
+                    </td>
+                    <td class="p-3">
+                        <button onclick="eliminarIngreso(${ingreso.id})" 
+                                class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                container.appendChild(row);
+            });
+        }
+        
+        function actualizarResumen() {
+            const datos = cargarDatos();
+            
+            // Calcular totales
+            const totalGastos = datos.gastos.reduce((sum, gasto) => sum + parseFloat(gasto.monto || 0), 0);
+            const totalIngresos = datos.ingresos.reduce((sum, ingreso) => sum + parseFloat(ingreso.monto || 0), 0);
+            const balance = totalIngresos - totalGastos;
+            
+            // Calcular gastos por prioridad
+            const gastosNecesarios = datos.gastos
+                .filter(g => g.prioridad === 'Necesario')
+                .reduce((sum, gasto) => sum + parseFloat(gasto.monto || 0), 0);
+                
+            const gastosPostponibles = datos.gastos
+                .filter(g => g.prioridad === 'Postponible')
+                .reduce((sum, gasto) => sum + parseFloat(gasto.monto || 0), 0);
+            
+            // Actualizar DOM
+            document.getElementById('totalGastos').textContent = `$${totalGastos.toFixed(2)}`;
+            document.getElementById('totalIngresos').textContent = `$${totalIngresos.toFixed(2)}`;
+            document.getElementById('balanceDiario').textContent = `$${balance.toFixed(2)}`;
+            document.getElementById('gastosNecesarios').textContent = `Necesarios: $${gastosNecesarios.toFixed(2)}`;
+            document.getElementById('gastosPostponibles').textContent = `Postponibles: $${gastosPostponibles.toFixed(2)}`;
+            
+            // Estado del balance
+            const balanceEstado = document.getElementById('balanceEstado');
+            if (balance > 0) {
+                balanceEstado.textContent = 'Superávit';
+                balanceEstado.className = 'mt-2 text-sm font-medium text-green-600';
+            } else if (balance < 0) {
+                balanceEstado.textContent = 'Déficit';
+                balanceEstado.className = 'mt-2 text-sm font-medium text-red-600';
+            } else {
+                balanceEstado.textContent = 'Equilibrio';
+                balanceEstado.className = 'mt-2 text-sm font-medium text-blue-600';
+            }
+        }
+        
+        function actualizarGraficos() {
+            const datos = cargarDatos();
+            
+            // Destruir gráficos anteriores si existen
+            if (gastosChart) gastosChart.destroy();
+            if (balanceChart) balanceChart.destroy();
+            
+            // Datos para gráfico de gastos por categoría
+            const gastosPorCategoria = {};
+            categorias.forEach(cat => {
+                gastosPorCategoria[cat] = 0;
+            });
+            
+            datos.gastos.forEach(gasto => {
+                if (gastosPorCategoria.hasOwnProperty(gasto.categoria)) {
+                    gastosPorCategoria[gasto.categoria] += parseFloat(gasto.monto || 0);
+                } else {
+                    gastosPorCategoria[gasto.categoria] = parseFloat(gasto.monto || 0);
+                }
+            });
+            
+            // Crear gráfico de gastos
+            const ctxGastos = document.getElementById('gastosChart').getContext('2d');
+            gastosChart = new Chart(ctxGastos, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(gastosPorCategoria),
+                    datasets: [{
+                        data: Object.values(gastosPorCategoria),
+                        backgroundColor: [
+                            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                            '#9966FF', '#FF9F40', '#8AC926', '#1982C4'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+            
+            // Datos para gráfico de ingresos vs gastos
+            const totalGastos = datos.gastos.reduce((sum, gasto) => sum + parseFloat(gasto.monto || 0), 0);
+            const totalIngresos = datos.ingresos.reduce((sum, ingreso) => sum + parseFloat(ingreso.monto || 0), 0);
+            
+            // Crear gráfico de balance
+            const ctxBalance = document.getElementById('balanceChart').getContext('2d');
+            balanceChart = new Chart(ctxBalance, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Ingresos', 'Gastos'],
+                    datasets: [{
+                        data: [totalIngresos, totalGastos],
+                        backgroundColor: ['#4CAF50', '#F44336']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+        }
+        
+        function exportarCSV() {
+            const datos = cargarDatos();
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Cabeceras
+            csvContent += "Fecha,Tipo,Monto,Categoria,Prioridad,Fuente\n";
+            
+            // Gastos
+            datos.gastos.forEach(gasto => {
+                const fecha = formatoFechaISO(currentDate);
+                const fila = `${fecha},Gasto,${gasto.monto},${gasto.categoria},${gasto.prioridad},\n`;
+                csvContent += fila;
+            });
+            
+            // Ingresos
+            datos.ingresos.forEach(ingreso => {
+                const fecha = formatoFechaISO(currentDate);
+                const fila = `${fecha},Ingreso,${ingreso.monto},,,${ingreso.fuente}\n`;
+                csvContent += fila;
+            });
+            
+            // Crear enlace de descarga
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `gastos_${formatoFechaISO(currentDate)}.csv`);
+            document.body.appendChild(link);
+            
+            // Descargar
+            link.click();
+            document.body.removeChild(link);
+            
+            mostrarNotificacion('Datos exportados a CSV');
+        }
+    </script>
+</body>
+</html>
